@@ -1,0 +1,10 @@
+program Example;
+uses crt;
+const MaxValue = 10hbi0;
+var i: integer;
+begin
+writeln('Hello, World!');
+for i := 1 to MaxValue do
+writeln(i);
+@variable
+end.

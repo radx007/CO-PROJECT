@@ -1,0 +1,42 @@
+Token Table:
+| Lexeme          | Category        | Value      |
+|-----------------|-----------------|------------|
+| program         | Keyword         |            |
+| Example         | Identifier      |            |
+| ;               | Delimiter       |            |
+| uses            | Identifier      |            |
+| crt             | Identifier      |            |
+| ;               | Delimiter       |            |
+| const           | Keyword         |            |
+| MaxValue        | Identifier      |            |
+| =               | Delimiter       |            |
+| ;               | Delimiter       |            |
+| var             | Keyword         |            |
+| i               | Identifier      |            |
+| :               | Delimiter       |            |
+| integer         | Keyword         |            |
+| ;               | Delimiter       |            |
+| begin           | Keyword         |            |
+| writeln         | Keyword         |            |
+| (               | Delimiter       |            |
+| 'Hello, World!' | StringLiteral   | 'Hello, World!' |
+| )               | Delimiter       |            |
+| ;               | Delimiter       |            |
+| for             | Keyword         |            |
+| i               | Identifier      |            |
+| :=              | Operator        |            |
+| 1               | IntegerLiteral  | 1          |
+| to              | Keyword         |            |
+| MaxValue        | Identifier      |            |
+| do              | Keyword         |            |
+| writeln         | Keyword         |            |
+| (               | Delimiter       |            |
+| i               | Identifier      |            |
+| )               | Delimiter       |            |
+| ;               | Delimiter       |            |
+| end             | Keyword         |            |
+| .               | Delimiter       |            |
+
+Error Table:
+Lexical Error, Line 3: "10hbi0" Unrecognized character
+Lexical Error, Line 9: "@variable" Unrecognized character
