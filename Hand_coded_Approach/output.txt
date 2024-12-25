@@ -39,4 +39,4 @@ Token Table:
 
 Error Table:
 Lexical Error, Line 3: "10hbi0" Unrecognized character
-Lexical Error, Line 9: "@variable" Unrecognized character
+Lexical Error, Line 13: "@variable" Unrecognized character

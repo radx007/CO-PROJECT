@@ -45,8 +45,11 @@ function lexer(input) {
   let currentToken = '';
   let currentChar;
   let inString = false;
-  let inComment = false;
+  let inCurlyBraceComment = false;
+  let inParenthesisComment = false;
   let lineNumber = 1; // Track line numbers
+  let nestedCurlyComments = 0;
+  let nestedParenthesisComments = 0;
 
   for (let i = 0; i < input.length; i++) {
     currentChar = input[i];
@@ -56,24 +59,46 @@ function lexer(input) {
       lineNumber++;
     }
 
-    // Handle comments (starting with { or //)
-    if (inComment) {
-      if (currentChar === '}' || (input[i - 1] === '\n' && currentChar === '\n')) {
-        inComment = false;
+    // Handle curly brace comments
+    if (inCurlyBraceComment) {
+      if (currentChar === '{') {
+        nestedCurlyComments++;
+      } else if (currentChar === '}') {
+        nestedCurlyComments--;
+        if (nestedCurlyComments === 0) {
+          inCurlyBraceComment = false;
+        }
       }
       continue;
     }
 
-    if (currentChar === '{') {
-      inComment = true;
-      continue;
-    }
-
-    // Handle line comments (starting with //)
-    if (i > 0 && input[i - 1] === "/" && currentChar === "/") {
-      while (input[i] !== '\n' && i < input.length) {
+    // Handle parenthesis-asterisk comments
+    if (inParenthesisComment) {
+      if (currentChar === '(' && input[i + 1] === '*') {
+        nestedParenthesisComments++;
         i++;
+      } else if (currentChar === '*' && input[i + 1] === ')') {
+        nestedParenthesisComments--;
+        i++;
+        if (nestedParenthesisComments === 0) {
+          inParenthesisComment = false;
+        }
       }
+      continue;
+    }
+
+    // Detect start of curly brace comment
+    if (currentChar === '{') {
+      inCurlyBraceComment = true;
+      nestedCurlyComments++;
+      continue;
+    }
+
+    // Detect start of parenthesis-asterisk comment
+    if (currentChar === '(' && input[i + 1] === '*') {
+      inParenthesisComment = true;
+      nestedParenthesisComments++;
+      i++;
       continue;
     }
 
@@ -122,6 +147,14 @@ function lexer(input) {
       }
       currentToken = '';
     }
+  }
+
+  // Check for unclosed comments
+  if (nestedCurlyComments > 0) {
+    errors.push(`Lexical Error: Unclosed curly brace comment detected.`);
+  }
+  if (nestedParenthesisComments > 0) {
+    errors.push(`Lexical Error: Unclosed parenthesis-asterisk comment detected.`);
   }
 
   return { tokens, errors };

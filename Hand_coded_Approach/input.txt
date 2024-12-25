@@ -1,6 +1,12 @@
 program Example;
 uses crt;
 const MaxValue = 10hbi0;
+
+ {  { This is a
+ multi-line comment(* Multi-line
+ comment style *)
+  }This is a single-line comment }
+ 
 var i: integer;
 begin
 writeln('Hello, World!');
