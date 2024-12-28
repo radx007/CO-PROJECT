@@ -4,6 +4,27 @@
 #include <string.h>
 #include <stdbool.h> 
 
+typedef union {
+    int iVal;           // For IntegerLiteral
+    double rVal;        // For RealLiteral
+    char cVal;          // For CharLiteral
+    char* sVal;         // For StringLiteral
+    char* identifier;   // For IDENTIFIER
+    bool bval;          // For Boolean values
+} FactorValue;
+
+typedef struct {
+    int type;           // Type of the value (e.g., Integer, Real, String, etc.)
+    FactorValue value;  // The actual value
+} Factor;
+
+#define BOOLEAN_TYPE 1
+#define IDENTIFIER_TYPE 2
+#define REAL_TYPE 3
+#define INTEGER_TYPE 4
+#define STRING_TYPE 5
+#define CHAR_TYPE 6
+
 extern FILE *yyin;
 extern FILE *outputFile;
 extern FILE *symbolTableFile;
@@ -33,22 +54,6 @@ void insertSymbol(Symbol* symbol);
 Symbol* findSymbol(const char* name);
 void printSymbolTable();
 
-typedef union {
-    int iVal;           // For IntegerLiteral
-    double rVal;        // For RealLiteral
-    char cVal;          // For CharLiteral
-    char* sVal;         // For StringLiteral
-    char* identifier;   // For IDENTIFIER
-} FactorValue;
-
-typedef struct {
-    int type;           // Type of the value (e.g., Integer, Real, String, etc.)
-    FactorValue value;  // The actual value
-} Factor;
-
-
-
-
 %}
 
 %union {
@@ -56,7 +61,8 @@ typedef struct {
     float fval;
     char* sval;
     bool bval;
-};
+    Factor* factor;
+}
 
 %token PROGRAM USES START END VAR CONST TYPE PROCEDURE FUNCTION IF THEN ELSE WHILE DO FOR TO BREAK CONTINUE DOWNTO REPEAT UNTIL CASE OF WRITE WRITELN READ READLN 
 %token DIV MOD AND OR NOT ASSIGN EQUALS PLUS MINUS MULT DIVIDE NEQ LEQ GEQ LT GT
@@ -68,9 +74,7 @@ typedef struct {
 %token <bval> BooleanLiteral
 
 %type <sval> TYPES 
-%type <Factor> factor simple_expression  expression
-%type <bval> term 
-
+%type <factor> factor simple_expression expression term comparison_expr logical_expr
 
 %start program
 
@@ -80,9 +84,7 @@ program:
     PROGRAM IDENTIFIER SEMICOLON program_part START statement_sequence END DOT  {
         { fprintf(stderr, "Program parsed successfully:\n"); exit(0); }
     }
-    
 ;
-
 
 program_part:
     constant_definition_part program_part_rest    
@@ -114,34 +116,30 @@ constant_definition_list:
 ;
 
 constant_definition:
-    IDENTIFIER EQUALS RealLiteral  SEMICOLON {
+    IDENTIFIER EQUALS RealLiteral SEMICOLON {
         Symbol* symbol = createSymbol($1, "REAL", true, "global");
         symbol->value.fval = $3;
         insertSymbol(symbol);
         fprintf(stderr, "1...\n");
     }
-    |IDENTIFIER EQUALS IntegerLiteral  SEMICOLON {
-        fprintf(stderr, "21...\n");
+    | IDENTIFIER EQUALS IntegerLiteral SEMICOLON {
         Symbol* symbol = createSymbol($1, "INTEGER", true, "global");
-        fprintf(stderr, "22...\n");
         symbol->value.ival = $3;
-        fprintf(stderr, "23...\n");
         insertSymbol(symbol);
         fprintf(stderr, "2...\n");
     }
-    |IDENTIFIER EQUALS StringLiteral  SEMICOLON SEMICOLON {
+    | IDENTIFIER EQUALS StringLiteral SEMICOLON {
         Symbol* symbol = createSymbol($1, "STRING", true, "global");
         symbol->value.sval = strdup($3);
         insertSymbol(symbol);
         fprintf(stderr, "3...\n");
     }
-    |IDENTIFIER EQUALS CharLiteral SEMICOLON {
+    | IDENTIFIER EQUALS CharLiteral SEMICOLON {
         Symbol* symbol = createSymbol($1, "CHAR", true, "global");
         symbol->value.sval = strdup($3);
         insertSymbol(symbol);
         fprintf(stderr, "5...\n");
     }
-    
 ;
 
 type_definition_part:
@@ -166,9 +164,7 @@ constant:
 scalable_constant:
     IntegerLiteral         
     | CharLiteral   
-
 ;
-
 
 TYPES:
     INTEGER
@@ -199,11 +195,7 @@ variable_declaration_list:
 
 variable_declaration:
     IDENTIFIER COLON TYPES SEMICOLON {
-        fprintf(stderr, "61...\n");
-
         Symbol* symbol = createSymbol($1, $3, false, "global");
-        fprintf(stderr, "62...\n");
-
         insertSymbol(symbol);
         fprintf(stderr, "6...\n");
     }
@@ -259,8 +251,6 @@ statement:
     | output_statement SEMICOLON
     | BREAK SEMICOLON
     | CONTINUE SEMICOLON
-    
-    
 ;
 
 assignment_statement:
@@ -282,12 +272,10 @@ if_statement:
 
 while_statement:
     WHILE expression DO statement
-
 ;
 
 repeat_statement:
     REPEAT statement_sequence UNTIL expression
-    
 ;
 
 for_statement:
@@ -347,56 +335,50 @@ pointer_dereference:
 ;
 
 expression:
-      simple_expression  { $$ = $1; }
-    | comparison_expr    { $$ = $1; }  // Comparison can return a boolean
-    | logical_expr       { $$ = $1; }  // Logical operations can return a boolean
+      simple_expression { $$ = $1; }
+    | comparison_expr   { $$ = $1; }
+    | logical_expr      { $$ = $1; }
 ;
-
 
 comparison_expr:
-      simple_expression EQUALS simple_expression   { $$ = $1 == $3; }
-    | simple_expression NEQ simple_expression     { $$ = $1 != $3; }
-    | simple_expression LT simple_expression      { $$ = $1 < $3; }
-    | simple_expression LEQ simple_expression     { $$ = $1 <= $3; }
-    | simple_expression GT simple_expression      { $$ = $1 > $3; }
-    | simple_expression GEQ simple_expression     { $$ = $1 >= $3; }
+      simple_expression EQUALS simple_expression   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal == $3->value.iVal; }
+    | simple_expression NEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal != $3->value.iVal; }
+    | simple_expression LT simple_expression      { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal < $3->value.iVal; }
+    | simple_expression LEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal <= $3->value.iVal; }
+    | simple_expression GT simple_expression      { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal > $3->value.iVal; }
+    | simple_expression GEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal >= $3->value.iVal; }
 ;
-
 
 logical_expr:
-      factor AND factor  { $$ = $1 && $3; }
-    | factor OR factor   { $$ = $1 || $3; }
-    | NOT factor         { $$ = !$2; }
+      factor AND factor  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.bval && $3->value.bval; }
+    | factor OR factor   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.bval || $3->value.bval; }
+    | NOT factor         { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = !$2->value.bval; }
 ;
-
 
 simple_expression:
       term
-    | simple_expression PLUS term   { $$ = $1 + $3; }
-    | simple_expression MINUS term  { $$ = $1 - $3; }
+    | simple_expression PLUS term   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal + $3->value.iVal; }
+    | simple_expression MINUS term  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal - $3->value.iVal; }
 ;
 
 term:
       factor
-    | term MULT factor   { $$ = $1 * $3; }
-    | term DIVIDE factor { $$ = $1 / $3; }
-    | term MOD factor    { $$ = $1 % $3; }
-;
-
+    | term MULT factor   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal * $3->value.iVal; }
+    | term DIVIDE factor { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal / $3->value.iVal; }
+    | term MOD factor    { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal % $3->value.iVal; }
 ;
 
 factor:
-    IDENTIFIER        { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = IDENTIFIER_TYPE; $$->value.identifier = $1; }
+    IDENTIFIER        { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = IDENTIFIER_TYPE; $$->value.identifier = strdup($1); }
     | RealLiteral     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = REAL_TYPE; $$->value.rVal = $1; }
     | IntegerLiteral  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = INTEGER_TYPE; $$->value.iVal = $1; }
-    | StringLiteral   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = STRING_TYPE; $$->value.sVal = $1; }
-    | CharLiteral     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = CHAR_TYPE; $$->value.cVal = $1; }
-    | LPAREN expression RPAREN
-                      { $$ = $2; }  // Assuming expression is evaluated earlier and passed as a factor
+    | StringLiteral   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = STRING_TYPE; $$->value.sVal = strdup($1); }
+    | CharLiteral     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = CHAR_TYPE; $$->value.cVal = $1[0]; }
+    | LPAREN expression RPAREN { $$ = $2; }
 ;
 
-
 %%
+
 void yyerror(const char *s) {
     fprintf(stderr, "Error: %s  | %d\n", s,yylineno);
 }
@@ -444,32 +426,22 @@ Symbol* createSymbol(const char* name, const char* type, bool isConstant, const 
     return symbol;
 }
 
-
 void insertSymbol(Symbol* symbol) {
-        fprintf(stderr, "a...\n");
     if (findSymbol(symbol->name)) {
         fprintf(stderr, "Error: Symbol '%s' already declared\n", symbol->name);
         return;
     }
-    fprintf(stderr, "b...\n");
     symbol->next = symbolTable;
     symbolTable = symbol;
 }
 
 Symbol* findSymbol(const char* name) {
-    fprintf(stderr, "t...\n");
     Symbol* current = symbolTable;
-     fprintf(stderr, "t...\n");
     while (current) {
-        fprintf(stderr, "i...\n");
-        fprintf(stderr, "i... Comparing '%s' with '%s'\n", current->name, name);
         if (strcmp(current->name, name) == 0)
             return current;
-        fprintf(stderr, "i...\n");    
         current = current->next;
-        fprintf(stderr, "i...\n");
     }
-     fprintf(stderr, "t...\n");
     return NULL;
 }
 
@@ -484,8 +456,6 @@ void printSymbolTable() {
         current = current->next;
     }
 }
-
-
 
 int main(int argc, char **argv) {
    if (argc < 3) {
@@ -509,8 +479,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    
-     // Open symbol table output file
+    // Open symbol table output file
     symbolTableFile = fopen(argv[3], "w");
     if (!symbolTableFile) {
         perror("Error opening symbol table output file");
