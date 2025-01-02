@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdbool.h> 
+#include <stdbool.h>
 #include "pascal.tab.h"
 
 FILE *outputFile;
@@ -15,9 +15,9 @@ FILE *symbolTableFile;
 DELIMITERS (":"|";"|","|"."|".."|"("|")"|"["|"]")
 IDENTIFIER [A-Za-z_][A-Za-z0-9_]{0,30}
 
-
 %%
-"PROGRAM"           { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Keyword", ""); return PROGRAM; };
+
+"PROGRAM"           { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Keyword", ""); return PROGRAM; }
 "USES"              { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Keyword", ""); return USES; }
 "BEGIN"             { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Keyword", ""); return START; }
 "END"               { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Keyword", ""); return END; }
@@ -78,24 +78,28 @@ IDENTIFIER [A-Za-z_][A-Za-z0-9_]{0,30}
 "["                 { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Delimiter", ""); return LBRACKET; }
 "]"                 { fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Delimiter", ""); return RBRACKET; }
 
-
 [+-]?([0-9]*\.[0-9]+|[0-9]+\.[0-9]*)([eE][+-]?[0-9]+)? {
+    yylval.fval = atof(yytext);
     fprintf(outputFile, "| %-15s | %-15s | %-10s %s |\n", yytext, "RealLiteral", "", yytext); return RealLiteral;
 }
 
 [+-]?[0-9]+ {
+    yylval.ival = atoi(yytext);
     fprintf(outputFile, "| %-15s | %-15s | %-10s %s |\n", yytext, "IntegerLiteral", "", yytext); return IntegerLiteral;
 }
 
 '[^\\n\']' {
+    yylval.sval = strdup(yytext);
     fprintf(outputFile, "| %-15s | %-15s | %-10s %s |\n", yytext, "CharLiteral", "", yytext); return CharLiteral;
 }
 
 '(('')|[^'\n])*' {
+    yylval.sval = strdup(yytext);
     fprintf(outputFile, "| %-15s | %-15s | %-10s %s |\n", yytext, "StringLiteral", "", yytext); return StringLiteral;
 }
 
 ([Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]) {
+    yylval.bval = (strcasecmp(yytext, "true") == 0);
     fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "BooleanLiteral", ""); return BooleanLiteral;
 }
 
@@ -103,9 +107,7 @@ IDENTIFIER [A-Za-z_][A-Za-z0-9_]{0,30}
 
 \(\*[^*]*\*[^)]*\) {}  
 
-
-{IDENTIFIER}   {   fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Identifier", ""); return IDENTIFIER;
-}
+{IDENTIFIER}   { yylval.sval = strdup(yytext); fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", yytext, "Identifier", ""); return IDENTIFIER; }
 
 ([0-9]|[#$@!-])+(({IDENTIFIER}[#$@!-]+)|{IDENTIFIER}) { fprintf(outputFile, "Lexical Error: Unrecognized token: %s found on line %d\n", yytext,yylineno); }
 
@@ -114,7 +116,6 @@ IDENTIFIER [A-Za-z_][A-Za-z0-9_]{0,30}
 . { fprintf(outputFile, "Lexical Error: Unrecognized token: %s found on line %d\n", yytext,yylineno); }
 
 %%
-
 
 int yywrap(void) {
     if (outputFile) fclose(outputFile);

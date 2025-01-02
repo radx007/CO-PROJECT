@@ -2,21 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h> 
-
-typedef union {
-    int iVal;           // For IntegerLiteral
-    double rVal;        // For RealLiteral
-    char cVal;          // For CharLiteral
-    char* sVal;         // For StringLiteral
-    char* identifier;   // For IDENTIFIER
-    bool bval;          // For Boolean values
-} FactorValue;
-
-typedef struct {
-    int type;           // Type of the value (e.g., Integer, Real, String, etc.)
-    FactorValue value;  // The actual value
-} Factor;
+#include <stdbool.h>
 
 #define BOOLEAN_TYPE 1
 #define IDENTIFIER_TYPE 2
@@ -48,20 +34,16 @@ typedef struct Symbol {
 
 Symbol* symbolTable = NULL;
 
-// Helper functions
-Symbol* createSymbol(const char* name, const char* type, bool isConstant, const char* scope);
-void insertSymbol(Symbol* symbol);
-Symbol* findSymbol(const char* name);
+
 void printSymbolTable();
 
 %}
 
 %union {
     int ival;
-    float fval;
+    double fval;
     char* sval;
     bool bval;
-    Factor* factor;
 }
 
 %token PROGRAM USES START END VAR CONST TYPE PROCEDURE FUNCTION IF THEN ELSE WHILE DO FOR TO BREAK CONTINUE DOWNTO REPEAT UNTIL CASE OF WRITE WRITELN READ READLN 
@@ -74,7 +56,8 @@ void printSymbolTable();
 %token <bval> BooleanLiteral
 
 %type <sval> TYPES 
-%type <factor> factor simple_expression expression term comparison_expr logical_expr
+%type <ival> expression simple_expression term factor
+%type <bval> comparison_expr logical_expr
 
 %start program
 
@@ -117,27 +100,19 @@ constant_definition_list:
 
 constant_definition:
     IDENTIFIER EQUALS RealLiteral SEMICOLON {
-        Symbol* symbol = createSymbol($1, "REAL", true, "global");
-        symbol->value.fval = $3;
-        insertSymbol(symbol);
+      
         fprintf(stderr, "1...\n");
     }
     | IDENTIFIER EQUALS IntegerLiteral SEMICOLON {
-        Symbol* symbol = createSymbol($1, "INTEGER", true, "global");
-        symbol->value.ival = $3;
-        insertSymbol(symbol);
+       
         fprintf(stderr, "2...\n");
     }
     | IDENTIFIER EQUALS StringLiteral SEMICOLON {
-        Symbol* symbol = createSymbol($1, "STRING", true, "global");
-        symbol->value.sval = strdup($3);
-        insertSymbol(symbol);
+        
         fprintf(stderr, "3...\n");
     }
     | IDENTIFIER EQUALS CharLiteral SEMICOLON {
-        Symbol* symbol = createSymbol($1, "CHAR", true, "global");
-        symbol->value.sval = strdup($3);
-        insertSymbol(symbol);
+       
         fprintf(stderr, "5...\n");
     }
 ;
@@ -195,27 +170,21 @@ variable_declaration_list:
 
 variable_declaration:
     IDENTIFIER COLON TYPES SEMICOLON {
-        Symbol* symbol = createSymbol($1, $3, false, "global");
-        insertSymbol(symbol);
+      
         fprintf(stderr, "6...\n");
     }
 ;
 
 procedure_declaration:
     PROCEDURE IDENTIFIER formal_parameter_list SEMICOLON program_part START statement_sequence END SEMICOLON {
-        Symbol* symbol = createSymbol($2, "PROCEDURE", false, "global");
-        insertSymbol(symbol);
-        fprintf(symbolTableFile, "Procedure '%s' stored.\n", $2);
+       
         fprintf(stderr, "7...\n");
     }
 ;
 
 function_declaration:
     FUNCTION IDENTIFIER formal_parameter_list COLON TYPES SEMICOLON program_part START statement_sequence END SEMICOLON {
-        Symbol* symbol = createSymbol($2, "FUNCTION", false, "global");
-        symbol->type = strdup($5); // Return type
-        insertSymbol(symbol);
-        fprintf(symbolTableFile, "Function '%s' stored.\n", $2);
+        
         fprintf(stderr, "8...\n");
     }
 ;
@@ -279,7 +248,7 @@ repeat_statement:
 ;
 
 for_statement:
-    FOR IDENTIFIER ASSIGN expression TO expression DO statement
+    FOR IDENTIFIER ASSIGN expression TO expression DO statement 
     | FOR IDENTIFIER ASSIGN expression TO expression DO block_statement
     | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO statement
     | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO block_statement
@@ -308,7 +277,7 @@ input_statement:
 ;
 
 output_statement:
-    WRITELN LPAREN expression_list RPAREN
+    WRITELN LPAREN expression_list RPAREN 
     |WRITE LPAREN expression_list RPAREN
 ;
 
@@ -341,39 +310,39 @@ expression:
 ;
 
 comparison_expr:
-      simple_expression EQUALS simple_expression   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal == $3->value.iVal; }
-    | simple_expression NEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal != $3->value.iVal; }
-    | simple_expression LT simple_expression      { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal < $3->value.iVal; }
-    | simple_expression LEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal <= $3->value.iVal; }
-    | simple_expression GT simple_expression      { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal > $3->value.iVal; }
-    | simple_expression GEQ simple_expression     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.iVal >= $3->value.iVal; }
+      simple_expression EQUALS simple_expression   { $$ = $1 == $3; }
+    | simple_expression NEQ simple_expression     { $$ = $1 != $3; }
+    | simple_expression LT simple_expression      { $$ = $1 < $3; }
+    | simple_expression LEQ simple_expression     { $$ = $1 <= $3; }
+    | simple_expression GT simple_expression      { $$ = $1 > $3; }
+    | simple_expression GEQ simple_expression     { $$ = $1 >= $3; }
 ;
 
 logical_expr:
-      factor AND factor  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.bval && $3->value.bval; }
-    | factor OR factor   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = $1->value.bval || $3->value.bval; }
-    | NOT factor         { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = BOOLEAN_TYPE; $$->value.bval = !$2->value.bval; }
+      comparison_expr AND comparison_expr  { $$ = $1 && $3; }
+    | comparison_expr OR comparison_expr   { $$ = $1 || $3; }
+    | NOT comparison_expr                  { $$ = !$2; }
 ;
 
 simple_expression:
       term
-    | simple_expression PLUS term   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal + $3->value.iVal; }
-    | simple_expression MINUS term  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal - $3->value.iVal; }
+    | simple_expression PLUS term   { $$ = $1 + $3; fprintf(symbolTableFile, "%d\n", $1 + $3);}
+    | simple_expression MINUS term  { $$ = $1 - $3; }
 ;
 
 term:
       factor
-    | term MULT factor   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal * $3->value.iVal; }
-    | term DIVIDE factor { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal / $3->value.iVal; }
-    | term MOD factor    { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = $1->type; $$->value.iVal = $1->value.iVal % $3->value.iVal; }
+    | term MULT factor   { $$ = $1 * $3; }
+    | term DIVIDE factor { $$ = $1 / $3; }
+    | term MOD factor    { $$ = $1 % $3; }
 ;
 
 factor:
-    IDENTIFIER        { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = IDENTIFIER_TYPE; $$->value.identifier = strdup($1); }
-    | RealLiteral     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = REAL_TYPE; $$->value.rVal = $1; }
-    | IntegerLiteral  { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = INTEGER_TYPE; $$->value.iVal = $1; }
-    | StringLiteral   { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = STRING_TYPE; $$->value.sVal = strdup($1); }
-    | CharLiteral     { $$ = (Factor*) malloc(sizeof(Factor)); $$->type = CHAR_TYPE; $$->value.cVal = $1[0]; }
+    IDENTIFIER        { $$ = atoi($1); }
+    | RealLiteral     { $$ = $1; }
+    | IntegerLiteral  { $$ = $1; }
+    | StringLiteral   { $$ = 0; /* Handle string literals appropriately */ }
+    | CharLiteral     { $$ = $1[0]; }
     | LPAREN expression RPAREN { $$ = $2; }
 ;
 
@@ -385,65 +354,7 @@ void yyerror(const char *s) {
 
 /* ------------------------------------------------------------------ */
 
-Symbol* createSymbol(const char* name, const char* type, bool isConstant, const char* scope) {
-    if (name == NULL) {
-        fprintf(stderr, "Error: Attempted to create symbol with NULL name\n");
-        return NULL;
-    }
-    
-    Symbol* symbol = (Symbol*)malloc(sizeof(Symbol));
-    if (!symbol) {
-        fprintf(stderr, "Error: Memory allocation failed for symbol\n");
-        return NULL;
-    }
 
-    symbol->name = strdup(name);  // Make sure name is not NULL before strdup
-    if (symbol->name == NULL) {
-        fprintf(stderr, "Error: strdup failed for symbol name\n");
-        free(symbol);
-        return NULL;
-    }
-
-    symbol->type = strdup(type);
-    if (symbol->type == NULL) {
-        fprintf(stderr, "Error: strdup failed for symbol type\n");
-        free(symbol->name);
-        free(symbol);
-        return NULL;
-    }
-
-    symbol->isConstant = isConstant;
-    symbol->scope = strdup(scope);
-    if (symbol->scope == NULL) {
-        fprintf(stderr, "Error: strdup failed for symbol scope\n");
-        free(symbol->name);
-        free(symbol->type);
-        free(symbol);
-        return NULL;
-    }
-
-    symbol->next = NULL;
-    return symbol;
-}
-
-void insertSymbol(Symbol* symbol) {
-    if (findSymbol(symbol->name)) {
-        fprintf(stderr, "Error: Symbol '%s' already declared\n", symbol->name);
-        return;
-    }
-    symbol->next = symbolTable;
-    symbolTable = symbol;
-}
-
-Symbol* findSymbol(const char* name) {
-    Symbol* current = symbolTable;
-    while (current) {
-        if (strcmp(current->name, name) == 0)
-            return current;
-        current = current->next;
-    }
-    return NULL;
-}
 
 void printSymbolTable() {
     Symbol* current = symbolTable;
