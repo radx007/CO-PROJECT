@@ -55,8 +55,8 @@ void printSymbolTable();
 %token <fval> RealLiteral
 %token <bval> BooleanLiteral
 
-%type <sval> TYPES 
-%type <ival> expression simple_expression term factor
+%type <sval> TYPES  
+%type <ival> expression simple_expression term factor expression_list
 %type <bval> comparison_expr logical_expr
 
 %start program
@@ -71,7 +71,7 @@ program:
 
 program_part:
     constant_definition_part program_part_rest    
-    | USES IDENTIFIER SEMICOLON program_part_rest {fprintf(outputFile, "| %-15s | %-15s | %-10s |\n", $2, "raidd", ""); }
+    | USES IDENTIFIER SEMICOLON program_part_rest {fprintf(symbolTableFile, "| %-15s | %-15s | %-10s |\n", $2, "raidd", ""); }
     | type_definition_part program_part_rest
     | variable_declaration_part program_part_rest
     | procedure_declaration program_part_rest
@@ -100,20 +100,20 @@ constant_definition_list:
 
 constant_definition:
     IDENTIFIER EQUALS RealLiteral SEMICOLON {
-      
-        fprintf(stderr, "1...\n");
+
+        fprintf(symbolTableFile, "1...\n");
     }
     | IDENTIFIER EQUALS IntegerLiteral SEMICOLON {
        
-        fprintf(stderr, "2...\n");
+        fprintf(symbolTableFile, "2...\n");
     }
     | IDENTIFIER EQUALS StringLiteral SEMICOLON {
         
-        fprintf(stderr, "3...\n");
+        fprintf(symbolTableFile, "3...\n");
     }
     | IDENTIFIER EQUALS CharLiteral SEMICOLON {
        
-        fprintf(stderr, "5...\n");
+        fprintf(symbolTableFile, "5...\n");
     }
 ;
 
@@ -142,12 +142,12 @@ scalable_constant:
 ;
 
 TYPES:
-    INTEGER
-    | REAL
-    | CHAR
-    | BOOLEAN
-    | ARRAY LBRACKET scalable_constant DOTDOT scalable_constant RBRACKET OF TYPES
-    | RECORD record_fields END
+    INTEGER   {$$ = "INTEGER";}
+    | REAL  {$$ = "REAL";}
+    | CHAR  {$$ = "CHAR";}
+    | BOOLEAN   {$$ = "BOOLEAN";}
+    | ARRAY LBRACKET scalable_constant DOTDOT scalable_constant RBRACKET OF TYPES   {$$ = "ARRAY";}
+    | RECORD record_fields END  {$$ = "RECORD";}
 ;
 
 record_fields:
@@ -171,21 +171,21 @@ variable_declaration_list:
 variable_declaration:
     IDENTIFIER COLON TYPES SEMICOLON {
       
-        fprintf(stderr, "6...\n");
+        fprintf(symbolTableFile, " %s : %s ;\n",$1,$3);
     }
 ;
 
 procedure_declaration:
     PROCEDURE IDENTIFIER formal_parameter_list SEMICOLON program_part START statement_sequence END SEMICOLON {
        
-        fprintf(stderr, "7...\n");
+        fprintf(symbolTableFile, "7...\n");
     }
 ;
 
 function_declaration:
     FUNCTION IDENTIFIER formal_parameter_list COLON TYPES SEMICOLON program_part START statement_sequence END SEMICOLON {
         
-        fprintf(stderr, "8...\n");
+        fprintf(symbolTableFile, "8...\n");
     }
 ;
 
@@ -231,8 +231,10 @@ procedure_call_statement:
 ;
 
 expression_list:
-    expression
-    | expression expression_list
+    expression { $$ = $1; }  
+    | expression COMMA expression_list {
+   
+    }
 ;
 
 if_statement:
@@ -277,8 +279,8 @@ input_statement:
 ;
 
 output_statement:
-    WRITELN LPAREN expression_list RPAREN 
-    |WRITE LPAREN expression_list RPAREN
+    WRITELN LPAREN expression_list RPAREN  {fprintf(symbolTableFile, "%s\n", $3);}
+    |WRITE LPAREN expression_list RPAREN    {fprintf(symbolTableFile, "%s", $3);}
 ;
 
 variable_list:
@@ -341,7 +343,7 @@ factor:
     IDENTIFIER        { $$ = atoi($1); }
     | RealLiteral     { $$ = $1; }
     | IntegerLiteral  { $$ = $1; }
-    | StringLiteral   { $$ = 0; /* Handle string literals appropriately */ }
+    | StringLiteral   { $$ = $1; }
     | CharLiteral     { $$ = $1[0]; }
     | LPAREN expression RPAREN { $$ = $2; }
 ;
