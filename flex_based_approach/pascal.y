@@ -46,18 +46,21 @@ void printSymbolTable();
     bool bval;
 }
 
-%token PROGRAM USES START END VAR CONST TYPE PROCEDURE FUNCTION IF THEN ELSE WHILE DO FOR TO BREAK CONTINUE DOWNTO REPEAT UNTIL CASE OF WRITE WRITELN READ READLN 
+%token PROGRAM USES START END VAR CONST TYPE PROCEDURE FUNCTION IF THEN ELSE WHILE DO FOR TO  DOWNTO REPEAT UNTIL CASE OF WRITE WRITELN READ READLN 
 %token DIV MOD AND OR NOT ASSIGN EQUALS PLUS MINUS MULT DIVIDE NEQ LEQ GEQ LT GT
 %token COLON SEMICOLON COMMA DOT DOTDOT LPAREN RPAREN LBRACKET RBRACKET
 %token <sval> IDENTIFIER INTEGER REAL CHAR BOOLEAN ARRAY RECORD  
+%token <sval> BREAK CONTINUE 
 %token <ival> IntegerLiteral
 %token <sval> CharLiteral StringLiteral
 %token <fval> RealLiteral
-%token <bval> BooleanLiteral
+%token <sval> BooleanLiteral
 
-%type <sval> TYPES  
-%type <ival> expression simple_expression term factor expression_list
-%type <bval> comparison_expr logical_expr
+%type <sval> TYPES  variable_list statement_sequence statement case_element case_element_list 
+%type <sval> expression simple_expression term factor expression_list   
+%type <sval> comparison_expr logical_expr
+%type <sval> scalable_constant constant
+%type <sval> assignment_statement procedure_call_statement if_statement while_statement repeat_statement for_statement case_statement input_statement output_statement 
 
 %start program
 
@@ -131,14 +134,30 @@ type_definition:
 ;
 
 constant:
-    IntegerLiteral         
-    | StringLiteral        
-    | CharLiteral  
-    // | BooleanLiteral 
+    IntegerLiteral  { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", $1);
+        $$ = strdup(buffer);
+    }
+    | StringLiteral   { $$ = strdup($1); }
+    | CharLiteral     { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%c", $1[0]);
+        $$ = strdup(buffer);
+    }
+    | BooleanLiteral { $$ = strdup($1); }
 ;
 scalable_constant:
-    IntegerLiteral         
-    | CharLiteral   
+    IntegerLiteral  { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", $1);
+        $$ = strdup(buffer);
+    }
+    | CharLiteral     { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%c", $1[0]);
+        $$ = strdup(buffer);
+    } 
 ;
 
 TYPES:
@@ -199,17 +218,17 @@ formal_parameter_list_items:
 ;
 
 formal_parameter:
-    VAR IDENTIFIER COLON TYPES
-    | IDENTIFIER COLON TYPES
+    VAR IDENTIFIER COLON TYPES 
+    | IDENTIFIER COLON TYPES 
 ;
 
 statement_sequence:
     statement
-    | statement statement_sequence
+    | statement statement_sequence { $$ = $1; }
 ;
 
 statement:
-    assignment_statement SEMICOLON
+    assignment_statement SEMICOLON  
     | procedure_call_statement SEMICOLON
     | if_statement SEMICOLON
     | while_statement SEMICOLON
@@ -223,68 +242,165 @@ statement:
 ;
 
 assignment_statement:
-    IDENTIFIER ASSIGN expression
+    IDENTIFIER ASSIGN expression  {
+        // Update the value of the identifier in the symbol table
+        Symbol* current = symbolTable;
+        while (current) {
+            if (strcmp(current->name, $1) == 0) {
+                if (strcmp(current->type, "INTEGER") == 0) {
+                    current->value.ival = atoi($3);
+                } else if (strcmp(current->type, "REAL") == 0) {
+                    current->value.fval = atof($3);
+                } else if (strcmp(current->type, "CHAR") == 0) {
+                    current->value.sval = strdup($3);
+                } else if (strcmp(current->type, "BOOLEAN") == 0) {
+                    current->value.bval = strcmp($3, "true") == 0 ? true : false;
+                }
+                break;
+            }
+            current = current->next;
+        }
+    }
 ;
 
 procedure_call_statement:
-    IDENTIFIER LPAREN expression_list RPAREN
+    IDENTIFIER LPAREN expression_list RPAREN 
 ;
 
 expression_list:
-    expression { $$ = $1; }  
+    expression { $$ = strdup($1); }  
     | expression COMMA expression_list {
-   
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%s, %s", $1, $3); // Concatenate strings
+        $$ = strdup(buffer);
     }
 ;
 
 if_statement:
-    IF expression THEN statement ELSE statement
+    IF expression THEN statement ELSE statement {
+        if ($2) {
+            // Execute the first statement
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        } else {
+            // Execute the second statement
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
 ;
 
 while_statement:
-    WHILE expression DO statement
+    WHILE expression DO statement {
+        while ($2) {
+            // Execute the statement
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
 ;
 
 repeat_statement:
-    REPEAT statement_sequence UNTIL expression
+    REPEAT statement_sequence UNTIL expression {
+        do {
+            // Execute the statement sequence
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        } while (!$4);
+    }
 ;
 
 for_statement:
-    FOR IDENTIFIER ASSIGN expression TO expression DO statement 
-    | FOR IDENTIFIER ASSIGN expression TO expression DO block_statement
-    | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO statement
-    | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO block_statement
+    FOR IDENTIFIER ASSIGN expression TO expression DO statement {
+        int start = atoi($4);
+        int end = atoi($6);
+        for (int i = start; i <= end; i++) {
+            // Execute the statement for each iteration
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
+    | FOR IDENTIFIER ASSIGN expression TO expression DO block_statement {
+        int start = atoi($4);
+        int end = atoi($6);
+        for (int i = start; i <= end; i++) {
+            // Execute the block statement for each iteration
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
+    | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO statement {
+        int start = atoi($4);
+        int end = atoi($6);
+        for (int i = start; i >= end; i--) {
+            // Execute the statement for each iteration
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
+    | FOR IDENTIFIER ASSIGN expression DOWNTO expression DO block_statement {
+        int start = atoi($4);
+        int end = atoi($6);
+        for (int i = start; i >= end; i--) {
+            // Execute the block statement for each iteration
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
 ;
 
 block_statement:
-    START statement_sequence END
+    START statement_sequence END    
 ;
 
 case_statement:
-    CASE expression OF case_element_list END
+    CASE expression OF case_element_list END {
+        int expr_value = atoi($2); // Convert the expression to an integer
+        switch (expr_value) {
+            // Add case elements here
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }
 ;
 
 case_element_list:
     case_element
-    | case_element case_element_list
+    | case_element case_element_list { $$ = $1; }
 ;
 
 case_element:
-    constant COLON statement
+    constant COLON statement {
+        if ($1) {
+            // Execute the statement
+            // Note: This is a simplified representation
+            // Actual implementation may vary based on the context
+        }
+    }         
 ;
 
 input_statement:
-    READLN LPAREN variable_list RPAREN
-    |READ LPAREN variable_list RPAREN
+    READLN LPAREN variable_list RPAREN {
+        char buffer[256];
+        fprintf(stderr, "Enter Value :");
+        scanf("%s", buffer);
+        $$ = strdup(buffer);
+    }
+    | READ LPAREN variable_list RPAREN {
+        char buffer[256];
+        fprintf(stderr, "Enter Value :");
+        scanf("%s", buffer);
+        $$ = strdup(buffer);
+    }
 ;
 
 output_statement:
-    WRITELN LPAREN expression_list RPAREN  {fprintf(symbolTableFile, "%s\n", $3);}
-    |WRITE LPAREN expression_list RPAREN    {fprintf(symbolTableFile, "%s", $3);}
+    WRITELN LPAREN expression_list RPAREN  {$$ = $3; fprintf(symbolTableFile, "%s\n", $3);}
+    |WRITE LPAREN expression_list RPAREN    {$$ = $3;fprintf(symbolTableFile, "%s", $3);}
 ;
 
 variable_list:
-    IDENTIFIER variable_suffix_opt
+    IDENTIFIER variable_suffix_opt { $$ = $1; }
 ;
 variable_suffix_opt:
     /* Empty */
@@ -306,46 +422,84 @@ pointer_dereference:
 ;
 
 expression:
-      simple_expression { $$ = $1; }
-    | comparison_expr   { $$ = $1; }
-    | logical_expr      { $$ = $1; }
+      simple_expression { $$ = strdup($1); }
+    | comparison_expr   { $$ = strdup($1); }
+    | logical_expr      { $$ = strdup($1); }
 ;
 
 comparison_expr:
-      simple_expression EQUALS simple_expression   { $$ = $1 == $3; }
-    | simple_expression NEQ simple_expression     { $$ = $1 != $3; }
-    | simple_expression LT simple_expression      { $$ = $1 < $3; }
-    | simple_expression LEQ simple_expression     { $$ = $1 <= $3; }
-    | simple_expression GT simple_expression      { $$ = $1 > $3; }
-    | simple_expression GEQ simple_expression     { $$ = $1 >= $3; }
+      simple_expression EQUALS simple_expression   { $$ = strdup(($1 == $3) ? "true" : "false"); }
+    | simple_expression NEQ simple_expression     { $$ = strdup(($1 != $3) ? "true" : "false"); }
+    | simple_expression LT simple_expression      { $$ = strdup(($1 < $3) ? "true" : "false"); }
+    | simple_expression LEQ simple_expression     { $$ = strdup(($1 <= $3) ? "true" : "false"); }
+    | simple_expression GT simple_expression      { $$ = strdup(($1 > $3) ? "true" : "false"); }
+    | simple_expression GEQ simple_expression     { $$ = strdup(($1 >= $3) ? "true" : "false"); }
 ;
 
 logical_expr:
-      comparison_expr AND comparison_expr  { $$ = $1 && $3; }
-    | comparison_expr OR comparison_expr   { $$ = $1 || $3; }
-    | NOT comparison_expr                  { $$ = !$2; }
+      comparison_expr AND comparison_expr  { $$ = strdup(($1 && $3) ? "true" : "false"); }
+    | comparison_expr OR comparison_expr   { $$ = strdup(($1 || $3) ? "true" : "false"); }
+    | NOT comparison_expr                  { $$ = strdup((!$2) ? "true" : "false"); }
 ;
 
 simple_expression:
-      term
-    | simple_expression PLUS term   { $$ = $1 + $3; fprintf(symbolTableFile, "%d\n", $1 + $3);}
-    | simple_expression MINUS term  { $$ = $1 - $3; }
+      term { $$ = strdup($1); }
+    | simple_expression PLUS term   { 
+        int result = atoi($1) + atoi($3);
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", result);
+        $$ = strdup(buffer);
+        fprintf(symbolTableFile, "%s\n", $$);
+    }
+    | simple_expression MINUS term  { 
+        int result = atoi($1) - atoi($3);
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", result);
+        $$ = strdup(buffer);
+    }
 ;
 
 term:
-      factor
-    | term MULT factor   { $$ = $1 * $3; }
-    | term DIVIDE factor { $$ = $1 / $3; }
-    | term MOD factor    { $$ = $1 % $3; }
+      factor { $$ = strdup($1); }
+    | term MULT factor   { 
+        int result = atoi($1) * atoi($3);
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", result);
+        $$ = strdup(buffer);
+    }
+    | term DIVIDE factor { 
+        int result = atoi($1) / atoi($3);
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", result);
+        $$ = strdup(buffer);
+    }
+    | term MOD factor    { 
+        int result = atoi($1) % atoi($3);
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", result);
+        $$ = strdup(buffer);
+    }
 ;
 
 factor:
-    IDENTIFIER        { $$ = atoi($1); }
-    | RealLiteral     { $$ = $1; }
-    | IntegerLiteral  { $$ = $1; }
-    | StringLiteral   { $$ = $1; }
-    | CharLiteral     { $$ = $1[0]; }
-    | LPAREN expression RPAREN { $$ = $2; }
+    IDENTIFIER        { $$ = strdup($1); }
+    | RealLiteral     { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%f", $1);
+        $$ = strdup(buffer);
+    }
+    | IntegerLiteral  { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%d", $1);
+        $$ = strdup(buffer);
+    }
+    | StringLiteral   { $$ = strdup($1); }
+    | CharLiteral     { 
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "%c", $1[0]);
+        $$ = strdup(buffer);
+    }
+    | LPAREN expression RPAREN { $$ = strdup($2); }
 ;
 
 %%
